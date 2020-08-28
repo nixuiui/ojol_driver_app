@@ -19,6 +19,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
+  int duration = 10;
+  Timer timer;
+
   Completer<GoogleMapController> _controller = Completer();
   Set<Marker> _markers = Set<Marker>();
   Set<Polyline> _polylines = Set<Polyline>();
@@ -40,12 +43,19 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     setMarkerIcon();
+    timer = Timer.periodic(Duration(seconds: duration), (Timer t) => updateDriverMarker());
     location.changeSettings(accuracy: LocationAccuracy.high);
+    setInitialLocation();
     location.onLocationChanged.listen((LocationData cLoc) {
-      print(cLoc.latitude);
-      print(cLoc.longitude);
       currentLocation = cLoc;
-      updateDriverMarker();
+    });
+  }
+
+  void setInitialLocation() async {
+    currentLocation = await location.getLocation();
+    destinationLocation = LocationData.fromMap({
+      "latitude": DEST_LOCATION.latitude,
+      "longitude": DEST_LOCATION.longitude
     });
   }
 
@@ -127,8 +137,16 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void setDriverMarker() {
+  void setDriverMarker() async {
     var pinPosition = currentLocation != null ? LatLng(currentLocation.latitude, currentLocation.longitude) : SOURCE_LOCATION;
+    CameraPosition cPosition = CameraPosition(
+      zoom: CAMERA_ZOOM,
+      target: LatLng(currentLocation.latitude, currentLocation.longitude),
+    );
+
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(CameraUpdate.newCameraPosition(cPosition));
+
     _markers.removeWhere((m) => m.markerId.value == "driverMarker");
     _markers.add(Marker(
       markerId: MarkerId("driverMarker"),
@@ -157,6 +175,9 @@ class _HomePageState extends State<HomePage> {
         icon: driverIcon
       ));
     });
+    print("RELOAD");
+    timer?.cancel();
+    timer = Timer.periodic(Duration(seconds: duration), (Timer t) => updateDriverMarker());
   }
 
 }
