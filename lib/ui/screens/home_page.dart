@@ -40,6 +40,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     setMarkerIcon();
+    location.changeSettings(accuracy: LocationAccuracy.high);
     location.onLocationChanged.listen((LocationData cLoc) {
       print(cLoc.latitude);
       print(cLoc.longitude);
@@ -75,17 +76,55 @@ class _HomePageState extends State<HomePage> {
         zoomControlsEnabled: false,
         initialCameraPosition: initialCameraPosition,
         markers: _markers,
+        polylines: _polylines,
         onMapCreated: (GoogleMapController controller) {
           _controller.complete(controller);
           setDriverMarker();
         }
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: null,
-        label: Text('To the lake!'),
+        onPressed: () => setRouteOrder(),
+        label: Text("Set Order"),
         icon: Icon(Icons.directions_boat),
       ),
     );
+  }
+
+  setRouteOrder() async {
+    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+      googleAPIKey,
+      PointLatLng(SOURCE_LOCATION.latitude, SOURCE_LOCATION.longitude),
+      PointLatLng(DEST_LOCATION.latitude, DEST_LOCATION.longitude)
+    );
+
+    _polylines.removeWhere((p) => p.polylineId.value == "orderRoute");
+    Set<Polyline> _polylinesTemp = Set<Polyline>();
+    if(result.points.isNotEmpty){
+      result.points.forEach((PointLatLng point){
+        polylineCoordinates.add(LatLng(point.latitude,point.longitude));
+      });
+      _polylinesTemp.add(Polyline(
+        width: 5,
+        polylineId: PolylineId("orderRoute"),
+        color: Color.fromARGB(255, 40, 122, 198), 
+        points: polylineCoordinates
+      ));
+    }
+    _markers.removeWhere((m) => m.markerId.value == "startMarker");
+    _markers.removeWhere((m) => m.markerId.value == "destinationMarker");
+    _markers.add(Marker(
+      markerId: MarkerId("startMarker"),
+      position: SOURCE_LOCATION,
+      icon: startLocationIcon
+    ));
+    _markers.add(Marker(
+      markerId: MarkerId("destinationMarker"),
+      position: DEST_LOCATION,
+      icon: destinationIcon
+    ));
+    setState(() {
+      _polylines = _polylinesTemp;
+    });
   }
 
   void setDriverMarker() {
